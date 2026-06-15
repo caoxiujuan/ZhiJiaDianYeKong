@@ -1,0 +1,41 @@
+2025/12/24 14:20:19.625616 service is starting.
+2025/12/24 14:20:19.664117 websocket manage start
+2025/12/24 14:20:39.949656 Server exited
+2025/12/24 14:20:39.949656 websocket manage stop
+2025/12/24 14:21:08.895809 service is starting.
+2025/12/24 14:21:08.929810 websocket manage start
+2025/12/24 14:25:26.269034 service is starting.
+2025/12/24 14:25:26.312578 Failed to Listen: listen tcp :2502: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+2025/12/24 15:42:42.715716 service is starting.
+2025/12/24 15:42:42.753717 websocket manage start
+2025/12/24 16:49:27.882901 service is starting.
+2025/12/24 16:49:27.918901 websocket manage start
+2025/12/24 16:49:59.345988 Server exited
+2025/12/24 16:49:59.346092 websocket manage stop
+2025/12/24 16:52:20.321474 service is starting.
+2025/12/24 16:52:20.366875 websocket manage start
+2025/12/24 16:52:20.367876 Failed to Listen: listen tcp :3502: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+2025/12/24 16:52:20.367876 MBServerUpLoad listen tcp :3502: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+2025/12/24 16:52:20.367876 MBServerUpLoad: listen tcp :3502: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+2025/12/24 17:06:00.154220 service is starting.
+2025/12/24 17:06:00.204261 websocket manage start
+2025/12/24 17:06:24.764110 Server exited
+2025/12/24 17:06:24.764110 websocket manage stop
+2025/12/24 17:07:30.527793 service is starting.
+2025/12/24 17:07:30.568021 websocket manage start
+2025/12/24 17:19:48.932207 Server exited
+2025/12/24 17:19:48.932207 websocket manage stop
+2025/12/24 17:19:59.746934 service is starting.
+2025/12/24 17:19:59.791392 websocket manage start
+2025/12/24 17:20:25.404707 Server exited
+2025/12/24 17:20:25.405086 websocket manage stop
+2025/12/24 17:20:36.349515 service is starting.
+2025/12/24 17:20:36.408522 websocket manage start
+2025/12/24 17:20:53.657600 Server exited
+2025/12/24 17:20:53.657600 websocket manage stop
+2025/12/24 18:27:27.841001 service is starting.
+2025/12/24 18:27:27.881553 websocket manage start
+2025/12/24 18:27:48.378964 Server exited
+2025/12/24 18:27:48.378964 websocket manage stop
+2025/12/24 19:24:27.849284 service is starting.
+2025/12/24 19:24:27.894874 websocket manage start

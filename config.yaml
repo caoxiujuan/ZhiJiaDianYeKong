@@ -1,0 +1,64 @@
+global:
+  httpport: 8080
+  controlenable: 1
+  cqlj: 200
+
+modbusslave:
+  SlaveIp: 192.168.12.187
+  SlavePort: 2502
+
+modbusshearer:
+  SlaveEnable: 1
+  SlaveId: 1
+  SlaveIp: 192.168.12.187
+  SlavePort: 502
+  SlavePoint: 0
+  Sort: 0
+
+remotecontrol:
+  SlaveId: 1
+  SlaveIp: 172.16.0.250
+  SlavePort: 502
+
+
+can:
+  Can2udpIp1: 172.16.0.101
+  Can2udpIp2: 172.16.0.101
+  Can2udpIp3: 172.16.0.101
+  Can2udpIpExtra: 172.16.0.101
+  Can2udpIpExtra1: 172.16.0.101
+  Point1: 75
+  Point2: 141
+  PointExtra: 164
+  PointExtra1: 167
+  Can2udpPort: 8900
+
+system:
+  SupportNum: 44
+  Mode: 2
+
+database:
+  Username: testuser
+  Password: testuser
+  Host:  192.168.12.187
+  Port: 3306
+  Database: testdyk
+
+opcuaserver:
+  OpcuaIP: 192.168.5.182
+  OpcuaPort: 49321
+
+modeparam:
+  Intervention: 8     
+  ActionCode1: 3
+  ActionCode2: 4
+  ActionCode3: 5
+  ActionCode4: 6
+  TimeInterval: 1200  
+  PositionLimit: 2000
+  ProbabilityHand: 0
+  ProbabilityAuto: 0
+
+pressureparam:
+  Enable: 1
+

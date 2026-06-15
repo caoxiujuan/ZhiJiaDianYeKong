@@ -1,0 +1,34 @@
+kind: pipeline
+type: docker
+name: build_Pro
+
+environment:
+  GOOS: windows
+  GOARCH: amd64
+  CGO_ENABLED: 0
+  GOPROXY: https://goproxy.cn,direct
+
+steps:
+  - name: build
+    image: golang:1.16.6
+    commands:
+      - pwd
+      - mkdir release
+      - ls
+      - go build -a -o gocode.exe
+      - tar cvf release/gocode.tar gocode.exe config.yaml views static
+      - cd release && ls
+    when:
+      event: [tag]
+  - name: gitea-release
+    image: plugins/gitea-release
+    settings:
+      api_key: 69b27a024a8fff579cd4fd604f4804219acfb12a
+      base_url: https://git.lianli.com.cn
+      checksum:
+        - sha256
+      title: gocode_[tag]
+      files:
+        - ./release/gocode.tar
+    when:
+      event: [tag]

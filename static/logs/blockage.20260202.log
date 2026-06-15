@@ -1,0 +1,38 @@
+2026/02/02 11:55:10.225930 service is starting.
+2026/02/02 11:55:10.417522 websocket manage start
+2026/02/02 11:55:43.989517 register client [269de3f9-cf34-458b-a5fd-80b27860435c] to group []
+2026/02/02 11:55:43.989517  group length [1]
+2026/02/02 13:08:35.426619 client [269de3f9-cf34-458b-a5fd-80b27860435c] channel full, try unregister
+2026/02/02 13:08:35.427013 unregister client [269de3f9-cf34-458b-a5fd-80b27860435c] from group []
+2026/02/02 13:27:06.360802 client [269de3f9-cf34-458b-a5fd-80b27860435c] disconnect
+2026/02/02 13:27:06.362801 client [269de3f9-cf34-458b-a5fd-80b27860435c] receive read message: , err: read tcp [::1]:8080->[::1]:14115: use of closed network connection
+2026/02/02 13:27:06.362801 client read [269de3f9-cf34-458b-a5fd-80b27860435c] disconnect err: close tcp [::1]:8080->[::1]:14115: use of closed network connection
+2026/02/02 13:27:06.363792 unregister client [269de3f9-cf34-458b-a5fd-80b27860435c] from group []
+2026/02/02 13:27:07.546792 register client [bae08684-ffa6-4dc7-99ef-c61e1bf8913d] to group []
+2026/02/02 13:27:07.546792  group length [1]
+2026/02/02 13:31:26.812516 Server exited
+2026/02/02 13:31:26.812516 websocket manage stop
+2026/02/02 16:32:37.802041 service is starting.
+2026/02/02 16:32:37.861753 websocket manage start
+2026/02/02 16:32:45.405903 register client [b95bb74a-f43b-4360-a543-847951221024] to group []
+2026/02/02 16:32:45.405903  group length [1]
+2026/02/02 16:33:16.912424 Server exited
+2026/02/02 16:33:16.912424 websocket manage stop
+2026/02/02 16:34:45.403404 service is starting.
+2026/02/02 16:34:45.435906 websocket manage start
+2026/02/02 16:34:53.457707 register client [a052e1a2-5466-4454-a54a-a662f1da002b] to group []
+2026/02/02 16:34:53.457707  group length [1]
+2026/02/02 16:40:51.505347 Server exited
+2026/02/02 16:40:51.505347 websocket manage stop
+2026/02/02 16:42:13.921282 service is starting.
+2026/02/02 16:42:13.957753 websocket manage start
+2026/02/02 16:42:14.494661 register client [7dbc2dcf-4a4d-4959-b34a-4cb933def9bd] to group []
+2026/02/02 16:42:14.494661  group length [1]
+2026/02/02 16:44:28.888930 Server exited
+2026/02/02 16:44:28.888930 websocket manage stop
+2026/02/02 16:46:37.130278 service is starting.
+2026/02/02 16:46:37.167783 websocket manage start
+2026/02/02 16:46:37.309614 register client [727d330c-2ee7-436b-b71b-e106f5961404] to group []
+2026/02/02 16:46:37.310113  group length [1]
+2026/02/02 16:48:00.349697 Server exited
+2026/02/02 16:48:00.349697 websocket manage stop

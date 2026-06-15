@@ -1,0 +1,116 @@
+2026/01/16 08:38:21.821274 service is starting.
+2026/01/16 08:38:22.066276 websocket manage start
+2026/01/16 08:39:46.837293 register client [982c1169-71a6-4b21-a01a-f2a191f9b8f9] to group []
+2026/01/16 08:39:46.837878  group length [1]
+2026/01/16 08:40:51.569804 Server exited
+2026/01/16 08:40:51.570302 websocket manage stop
+2026/01/16 08:50:10.420415 service is starting.
+2026/01/16 08:50:10.568416 websocket manage start
+2026/01/16 08:50:39.218426 register client [f5cb54b5-56c6-43ca-944f-c338cd0bbed9] to group []
+2026/01/16 08:50:39.218921  group length [1]
+2026/01/16 09:50:28.573639 client [f5cb54b5-56c6-43ca-944f-c338cd0bbed9] channel full, try unregister
+2026/01/16 09:50:28.574138 unregister client [f5cb54b5-56c6-43ca-944f-c338cd0bbed9] from group []
+2026/01/16 11:23:03.148756 client [f5cb54b5-56c6-43ca-944f-c338cd0bbed9] disconnect
+2026/01/16 11:23:03.150757 client [f5cb54b5-56c6-43ca-944f-c338cd0bbed9] receive read message: , err: read tcp [::1]:8080->[::1]:1794: use of closed network connection
+2026/01/16 11:23:03.151280 client read [f5cb54b5-56c6-43ca-944f-c338cd0bbed9] disconnect err: close tcp [::1]:8080->[::1]:1794: use of closed network connection
+2026/01/16 11:23:03.151280 unregister client [f5cb54b5-56c6-43ca-944f-c338cd0bbed9] from group []
+2026/01/16 11:23:09.930256 register client [25d3a830-7763-4dc9-b698-d297f13f1ffe] to group []
+2026/01/16 11:23:09.930256  group length [1]
+2026/01/16 11:23:58.134202 Server exited
+2026/01/16 11:23:58.134777 websocket manage stop
+2026/01/16 11:25:08.296779 service is starting.
+2026/01/16 11:25:08.725785 websocket manage start
+2026/01/16 11:25:12.469780 register client [1a5789e5-a903-47e1-9ac0-68f5637975d3] to group []
+2026/01/16 11:25:12.471778  group length [1]
+2026/01/16 11:25:14.695277 client [1a5789e5-a903-47e1-9ac0-68f5637975d3] receive read message: , err: websocket: close 1001 (going away)
+2026/01/16 11:25:14.695781 unregister client [1a5789e5-a903-47e1-9ac0-68f5637975d3] from group []
+2026/01/16 11:25:14.696569 client [1a5789e5-a903-47e1-9ac0-68f5637975d3] disconnect
+2026/01/16 11:25:14.703280 client write [1a5789e5-a903-47e1-9ac0-68f5637975d3] disconnect err: close tcp [::1]:8080->[::1]:14484: use of closed network connection
+2026/01/16 11:25:17.571904 register client [666fdf25-21da-4f1b-a695-31cb92c9a18d] to group []
+2026/01/16 11:25:17.576786  group length [1]
+2026/01/16 11:25:59.236297 Server exited
+2026/01/16 11:25:59.238794 websocket manage stop
+2026/01/16 11:28:23.273323 service is starting.
+2026/01/16 11:28:23.608319 websocket manage start
+2026/01/16 11:28:45.949133 register client [ed8129b3-101f-4fa9-9577-c4c8e4a70fe6] to group []
+2026/01/16 11:28:45.949511  group length [1]
+2026/01/16 11:28:47.847821 client [ed8129b3-101f-4fa9-9577-c4c8e4a70fe6] receive read message: , err: websocket: close 1001 (going away)
+2026/01/16 11:28:47.847821 unregister client [ed8129b3-101f-4fa9-9577-c4c8e4a70fe6] from group []
+2026/01/16 11:28:47.848328 client [ed8129b3-101f-4fa9-9577-c4c8e4a70fe6] disconnect
+2026/01/16 11:28:47.848328 client write [ed8129b3-101f-4fa9-9577-c4c8e4a70fe6] disconnect err: close tcp [::1]:8080->[::1]:14835: use of closed network connection
+2026/01/16 11:28:49.812326 register client [742fabea-a8ce-4c42-94e7-c75c96d8afaf] to group []
+2026/01/16 11:28:49.812825  group length [1]
+2026/01/16 11:34:54.208407 Server exited
+2026/01/16 11:34:54.208902 websocket manage stop
+2026/01/16 13:57:36.585210 service is starting.
+2026/01/16 13:57:36.725628 websocket manage start
+2026/01/16 13:57:49.226915 register client [8a0224c2-e6c2-4732-8040-ca10262ee51c] to group []
+2026/01/16 13:57:49.226915  group length [1]
+2026/01/16 13:58:41.599829 Server exited
+2026/01/16 13:58:41.599829 websocket manage stop
+2026/01/16 14:00:41.208921 service is starting.
+2026/01/16 14:00:41.230393 websocket manage start
+2026/01/16 14:00:48.745444 register client [41a54073-223f-4bd5-9044-3c4386fe93e7] to group []
+2026/01/16 14:00:48.745444  group length [1]
+2026/01/16 14:00:53.351974 client [41a54073-223f-4bd5-9044-3c4386fe93e7] receive read message: , err: websocket: close 1001 (going away)
+2026/01/16 14:00:53.352127 unregister client [41a54073-223f-4bd5-9044-3c4386fe93e7] from group []
+2026/01/16 14:00:53.352127 client [41a54073-223f-4bd5-9044-3c4386fe93e7] disconnect
+2026/01/16 14:00:53.352127 client write [41a54073-223f-4bd5-9044-3c4386fe93e7] disconnect err: close tcp [::1]:8080->[::1]:6514: use of closed network connection
+2026/01/16 14:00:53.418590 register client [4564f5b3-2359-4ea0-9182-dbd5e9e5a2ea] to group []
+2026/01/16 14:00:53.418780  group length [1]
+2026/01/16 14:05:29.750700 Server exited
+2026/01/16 14:05:29.750765 websocket manage stop
+2026/01/16 14:08:25.023354 service is starting.
+2026/01/16 14:08:25.052826 websocket manage start
+2026/01/16 14:08:27.343851 register client [354d1415-7a19-4ae1-bad6-c036cd079827] to group []
+2026/01/16 14:08:27.343996  group length [1]
+2026/01/16 14:08:35.148282 client [354d1415-7a19-4ae1-bad6-c036cd079827] receive read message: , err: websocket: close 1001 (going away)
+2026/01/16 14:08:35.148415 unregister client [354d1415-7a19-4ae1-bad6-c036cd079827] from group []
+2026/01/16 14:08:35.148415 client [354d1415-7a19-4ae1-bad6-c036cd079827] disconnect
+2026/01/16 14:08:35.148415 client write [354d1415-7a19-4ae1-bad6-c036cd079827] disconnect err: close tcp [::1]:8080->[::1]:7320: use of closed network connection
+2026/01/16 14:08:35.230285 register client [9a347f3d-b60f-4416-af06-d21bb217e641] to group []
+2026/01/16 14:08:35.230285  group length [1]
+2026/01/16 14:09:28.270357 Server exited
+2026/01/16 14:09:28.270425 websocket manage stop
+2026/01/16 14:22:51.140995 service is starting.
+2026/01/16 14:22:51.163957 websocket manage start
+2026/01/16 14:23:02.119034 register client [edbb53e9-2f84-45c9-afe3-3e37a20a99ec] to group []
+2026/01/16 14:23:02.119538  group length [1]
+2026/01/16 14:31:13.624385 Server exited
+2026/01/16 14:31:13.624385 websocket manage stop
+2026/01/16 14:53:40.235332 service is starting.
+2026/01/16 14:53:40.257796 websocket manage start
+2026/01/16 14:53:48.011112 register client [169e1c88-fe52-472e-97e7-63fd98e26afd] to group []
+2026/01/16 14:53:48.011112  group length [1]
+2026/01/16 14:54:22.360233 Server exited
+2026/01/16 14:54:22.360233 websocket manage stop
+2026/01/16 14:55:41.936217 service is starting.
+2026/01/16 14:55:41.957211 websocket manage start
+2026/01/16 14:55:45.347329 register client [8917c85a-6bd2-45d5-8aee-2faba86d7b1d] to group []
+2026/01/16 14:55:45.347329  group length [1]
+2026/01/16 14:56:39.085563 client [8917c85a-6bd2-45d5-8aee-2faba86d7b1d] receive read message: , err: websocket: close 1001 (going away)
+2026/01/16 14:56:39.085794 unregister client [8917c85a-6bd2-45d5-8aee-2faba86d7b1d] from group []
+2026/01/16 14:56:39.085794 client [8917c85a-6bd2-45d5-8aee-2faba86d7b1d] disconnect
+2026/01/16 14:56:39.085794 client write [8917c85a-6bd2-45d5-8aee-2faba86d7b1d] disconnect err: close tcp [::1]:8080->[::1]:12119: use of closed network connection
+2026/01/16 14:56:39.276272 register client [b3328925-7cc3-493d-97f2-3c015366f4c3] to group []
+2026/01/16 14:56:39.276365  group length [1]
+2026/01/16 15:02:10.944381 Server exited
+2026/01/16 15:02:10.944879 websocket manage stop
+2026/01/16 15:08:12.134798 service is starting.
+2026/01/16 15:08:12.156247 websocket manage start
+2026/01/16 15:08:19.600181 register client [36428ca7-fc55-4974-9c78-51e617e41419] to group []
+2026/01/16 15:08:19.600181  group length [1]
+2026/01/16 15:08:20.338113 client [36428ca7-fc55-4974-9c78-51e617e41419] receive read message: , err: websocket: close 1001 (going away)
+2026/01/16 15:08:20.338113 unregister client [36428ca7-fc55-4974-9c78-51e617e41419] from group []
+2026/01/16 15:08:20.338113 client [36428ca7-fc55-4974-9c78-51e617e41419] disconnect
+2026/01/16 15:08:20.338113 client write [36428ca7-fc55-4974-9c78-51e617e41419] disconnect err: close tcp [::1]:8080->[::1]:13371: use of closed network connection
+2026/01/16 15:08:20.515958 register client [361aa77f-d878-4444-b747-27e9fa0a2d1c] to group []
+2026/01/16 15:08:20.515958  group length [1]
+2026/01/16 15:08:26.095255 client [361aa77f-d878-4444-b747-27e9fa0a2d1c] receive read message: , err: websocket: close 1001 (going away)
+2026/01/16 15:08:26.095307 unregister client [361aa77f-d878-4444-b747-27e9fa0a2d1c] from group []
+2026/01/16 15:08:26.095307 client [361aa77f-d878-4444-b747-27e9fa0a2d1c] disconnect
+2026/01/16 15:08:26.095307 client write [361aa77f-d878-4444-b747-27e9fa0a2d1c] disconnect err: close tcp [::1]:8080->[::1]:13375: use of closed network connection
+2026/01/16 15:08:26.188800 register client [7bd1a69e-a31e-4dac-a36a-999f71efa95e] to group []
+2026/01/16 15:08:26.188800  group length [1]
+2026/01/16 15:13:24.326621 Server exited
+2026/01/16 15:13:24.326725 websocket manage stop
