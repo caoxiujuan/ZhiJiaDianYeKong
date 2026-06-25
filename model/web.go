@@ -164,6 +164,8 @@ type AutoFollowStatus struct {
 	Auto_yijia                    int   `json:"auto_yijia"`                       //自动移架使能
 	Auto_hubang                   int   `json:"auto_hubang"`                      //自动伸收护帮使能
 	Cqlj                          []int `json:"cqlj"`                             //超前拉架显示
+	SupportState                  []int `json:"support_state"`                    //支架状态
+	Version                       []int `json:"version"`                          //支架版本号
 }
 
 type SimulationStatus struct {

@@ -79,6 +79,17 @@ var (
 	faultMap                map[int]string                       // Map to store fault descriptions
 	RecordCommandChan       = make(chan model.RecordCommand, 2000)
 	recordCommandTableCache sync.Map
+	step                    int
+	autoFlowData            uint16
+	shearerPosition         int
+
+	auto_yijia      int
+	auto_tuiliu     int
+	auto_shenhubang int
+	auto_shouhubang int
+
+	supportState      int
+	isRunSupportState int
 )
 
 const timeFormat1 = "2006-01-02 15:04:05"
@@ -175,7 +186,7 @@ func isCqljWarningSupport(supportIndex int, supportSort int) bool {
 
 	switch supportSort {
 	case 0: //支架右升序
-		if Mb.HoldingRegisters[182] > 0 {
+		if Mb.HoldingRegisters[182] > 0 { //煤机向右
 			return supportNo > shearerSupportNo+4
 		} else {
 			return supportNo < shearerSupportNo-4
@@ -318,7 +329,7 @@ func Run(ctx context.Context, mbServer *mbserver.Server, supportNum int, CanHear
 		return
 	}
 	data := make([]byte, 1024)
-	fmt.Println("UDP监听(", utils.Conf.CAN.Can2udpPort, ")正常启动", net.IPv4zero, utils.Conf.CAN.Can2udpPort)
+	//fmt.Println("UDP监听(", utils.Conf.CAN.Can2udpPort, ")正常启动", net.IPv4zero, utils.Conf.CAN.Can2udpPort)
 	buff = utils.NewPointer()
 
 	if SensorCache == nil {
@@ -393,7 +404,7 @@ func Run(ctx context.Context, mbServer *mbserver.Server, supportNum int, CanHear
 
 func CommandMap() (n map[int]string) {
 	command = make(map[int]string)
-	command[0] = "空闲"
+	command[0] = "无命令"
 	command[1] = "升柱"
 	command[2] = "降柱"
 	command[3] = "移架"
@@ -948,87 +959,71 @@ func ParseFrame(ctx context.Context, CanHeart []int64, PressInterval []int, Pres
 							//}
 						}
 
-					} else if information_data[0] == 126 {
-						// Param1[source_id-1] = int(information_data[2] >> 4)
-						// Param3[source_id-1] = int(time.Now().Unix() - LastMode2Time[source_id-1])
-						// Param4[source_id-1] = int(math.Abs(float64(int(Mb.HoldingRegisters[180]) - int(source_id)*10)))
-						//Mb.HoldingRegisters[5400+int(source_id)-1] = (uint16(information_data[4]) << 8) | uint16(information_data[5])
+					} else if information_data[0] == 124 {
+						Mb.HoldingRegisters[7600+int(source_id-1)] = (uint16(information_data[4]) << 8) | uint16(information_data[5])
+						//fmt.Println("can回复自动化状态", uint16(information_data[2]), uint16(information_data[3]), uint16(information_data[4]), uint16(information_data[5]), uint16(information_data[6]), uint16(information_data[7]))
+						RandomAutoReceive[source_id-1] = int(information_data[3] & 0x0001)
+						//var autoFollowStatus model.AutoFollowStatus
+						for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
 
-					} else if information_data[0] == 129 {
-						//Param2[int(source_id)-1] = int(information_data[2] & 0x7f)
-						if int(information_data[2]) == 0 || int(information_data[2]) == 38 { //空闲状态
-							WorkMode[int(source_id)-1] = 0
-						} else {
-							if int(information_data[2]) == 3 || int(information_data[2]) == 4 || int(information_data[2]) == 5 || int(information_data[2]) == 6 {
-								WorkMode[int(source_id)-1] = 2
-							} else {
-								WorkMode[int(source_id)-1] = 1
-							}
-							//fmt.Println("wifi有动作上传", int(v[6]>>4), int(v[12]&0x7f), (int(time.Now().Unix() - LastMode2Time[int(v[3])-1])), (int(math.Abs(float64(int(mb.HoldingRegisters[180]) - int(v[3])*10)))))
-							// if Param1[source_id-1] > utils.Conf.MODEPARAM.Intervention &&
-							// 	(int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode1 ||
-							// 		int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode2 ||
-							// 		int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode3 ||
-							// 		int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode4 ||
-							// 		int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode5 ||
-							// 		int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode6 ||
-							// 		int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode7 ||
-							// 		int(information_data[2]&0x7f) == utils.Conf.MODEPARAM.ActionCode8) &&
-							// 	(int(time.Now().Unix()-LastMode2Time[int(source_id)-1]) > utils.Conf.MODEPARAM.TimeInterval) &&
-							// 	(int(math.Abs(float64(int(Mb.HoldingRegisters[180])-int(source_id)*10))) < utils.Conf.MODEPARAM.PositionLimit) {
-							// 	if rand.Intn(100) >= utils.Conf.MODEPARAM.ProbabilityHand {
-							// 		WorkMode[int(source_id)-1] = 2
-							// 	} else {
-							// 		WorkMode[int(source_id)-1] = 1
-							// 	}
+							auto := Mb.HoldingRegisters[3500+i]
 
-							// 	LastMode2Time[int(source_id)-1] = time.Now().Unix()
+							auto = (auto & 0x00FF) | (uint16(RandomAutoReceive[i]&0xFF) << 8)
+
+							Mb.HoldingRegisters[3500+i] = auto
+
+							// autoFollowStatus.IsAutoFollow = RandomAutoReceive
+
+							// auto_shenhubang = int(Mb.HoldingRegisters[7000+i] >> 12 & 0x000f)
+							// auto_shouhubang = int(Mb.HoldingRegisters[7000+i] >> 8 & 0x000f)
+							// auto_tuiliu = int(Mb.HoldingRegisters[7000+i] >> 4 & 0x000f)
+							// auto_yijia = int(Mb.HoldingRegisters[7000+i] & 0x000f)
+							// if auto_tuiliu == 2 || auto_tuiliu == 3 || auto_tuiliu == 4 || auto_tuiliu == 5 {
+							// 	autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, 2)
+							// } else if auto_tuiliu == 7 {
+							// 	autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, int(Mb.HoldingRegisters[7300+i]>>4&0x000f)+7)
 							// } else {
-							// 	if rand.Intn(100) >= utils.Conf.MODEPARAM.ProbabilityAuto {
-							// 		WorkMode[int(source_id)-1] = 1
-							// 	} else {
-							// 		WorkMode[int(source_id)-1] = 2
-							// 	}
+							// 	autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, auto_tuiliu)
+
+							// }
+							// if auto_yijia == 2 || auto_yijia == 3 || auto_yijia == 4 || auto_yijia == 5 {
+							// 	autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, 2)
+							// } else if auto_yijia == 7 {
+							// 	autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, int(Mb.HoldingRegisters[7300+i]&0x000f)+7)
+							// 	fmt.Println("移架中断源值：", Mb.HoldingRegisters[7300+i], time.Now())
+							// } else {
+							// 	autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, auto_yijia)
+
+							// }
+							// if auto_shenhubang == 2 || auto_shenhubang == 3 || auto_shenhubang == 4 || auto_shenhubang == 5 {
+							// 	autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, 2)
+							// } else if auto_shenhubang == 7 {
+							// 	autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, int(Mb.HoldingRegisters[7300+i]>>12&0x000f)+7)
+							// } else {
+							// 	autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, auto_shenhubang)
+
+							// }
+							// if auto_shouhubang == 2 || auto_shouhubang == 3 || auto_shouhubang == 4 || auto_shouhubang == 5 {
+							// 	autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, 2)
+							// } else if auto_shouhubang == 7 {
+							// 	autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, int(Mb.HoldingRegisters[7300+i]>>8&0x000f)+7)
+							// } else {
+							// 	autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, auto_shouhubang)
 
 							// }
 
 						}
-						// if information_data[3] == 0 || information_data[3] == 13 || information_data[3] == 14 {
-						// 	Mb.HoldingRegisters[4000+int(source_id-1)] = 0
-						// } else if information_data[3] == 12 {
-						// 	Mb.HoldingRegisters[4000+int(source_id-1)] = 1
-						// }
-						// Mb.HoldingRegisters[4220+int(source_id-1)] = uint16(information_data[3])
+						//log.Println("0189-124往前端推送自动化相关数据，时间：", time.Now(), "伸护帮：", autoFollowStatus.CompleteAutomaticExtension, "收护帮：", autoFollowStatus.CompleteAutomaticCare, "推溜：", autoFollowStatus.CompleteAutomaticPush, "移架：", autoFollowStatus.CompleteAutomaticRackTransfer, "单支架：", autoFollowStatus.SupportState)
 
-						// var lockStatus model.LockStatus
-						// lockStatus.KeyStatus = int(Mb.HoldingRegisters[4000+int(source_id-1)])
-						// lockStatus.Status = int(Mb.HoldingRegisters[4220+int(source_id-1)])
+						//fmt.Println("0189-124往前端推送自动化相关数据，时间：", time.Now(), "伸护帮：", autoFollowStatus.CompleteAutomaticExtension, "收护帮：", autoFollowStatus.CompleteAutomaticCare, "推溜：", autoFollowStatus.CompleteAutomaticPush, "移架：", autoFollowStatus.CompleteAutomaticRackTransfer, "单支架：", autoFollowStatus.SupportState)
+
 						// WebsocketMessage := model.WebsocketMessage{
-						// 	Type:    "lockStatus",
-						// 	Source:  int(source_id),
-						// 	Message: lockStatus,
+						// 	Type:    "autoFollowStatus",
+						// 	Source:  0,
+						// 	Message: autoFollowStatus,
 						// }
 						// strings, _ := json.Marshal(WebsocketMessage)
 						// service.WebsocketManager.SendAll(strings)
-					} else if information_data[0] == 138 {
-						//fmt.Println("can回复自动化状态", uint16(information_data[2]), uint16(information_data[3]), uint16(information_data[4]), uint16(information_data[5]), uint16(information_data[6]), uint16(information_data[7]))
-						RandomAutoReceive[source_id-1] = int(information_data[2] >> 7)
-						var autoFollowStatus model.AutoFollowStatus
-						for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
-							//Mb.HoldingRegisters[3500+i] = Mb.HoldingRegisters[3500+i] & 0xfff0
-							autoFollowStatus.IsAutoFollow = RandomAutoReceive
-							autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, int(Mb.HoldingRegisters[3500+i]>>3&0x0001))
-							autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, int(Mb.HoldingRegisters[3500+i]>>2&0x0001))
-							autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, int(Mb.HoldingRegisters[3500+i]>>1&0x0001))
-							autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, int(Mb.HoldingRegisters[3500+i]&0x0001))
-						}
-						WebsocketMessage := model.WebsocketMessage{
-							Type:    "autoFollowStatus",
-							Source:  0,
-							Message: autoFollowStatus,
-						}
-						strings, _ := json.Marshal(WebsocketMessage)
-						service.WebsocketManager.SendAll(strings)
 
 						if Mb.HoldingRegisters[187] == 0 {
 							exist := contains(RandomAutoReceive, 1)
@@ -1042,250 +1037,233 @@ func ParseFrame(ctx context.Context, CanHeart []int64, PressInterval []int, Pres
 							Mb.HoldingRegisters[177] = 1
 						}
 
+					} else if information_data[0] == 127 {
+						// Param1[source_id-1] = int(information_data[2] >> 4)
+						// Param3[source_id-1] = int(time.Now().Unix() - LastMode2Time[source_id-1])
+						// Param4[source_id-1] = int(math.Abs(float64(int(Mb.HoldingRegisters[180]) - int(source_id)*10)))
+						//Mb.HoldingRegisters[5400+int(source_id)-1] = (uint16(information_data[4]) << 8) | uint16(information_data[5])
+
+						Mb.HoldingRegisters[6700+int(source_id-1)] = uint16(information_data[2]>>7)<<8 | uint16(information_data[2]&0x7f)
+						Mb.HoldingRegisters[7000+int(source_id-1)] = uint16(information_data[4])<<8 | uint16(information_data[5])
+						Mb.HoldingRegisters[7300+int(source_id-1)] = uint16(information_data[6])<<8 | uint16(information_data[7])
+						if int(information_data[2]&0x7f) == 0 || int(information_data[2]&0x7f) == 38 { //空闲状态
+							WorkMode[int(source_id)-1] = 0
+						} else {
+							if int(information_data[2]&0x7f) == 3 || int(information_data[2]&0x7f) == 4 || int(information_data[2]&0x7f) == 5 || int(information_data[2]&0x7f) == 6 {
+								WorkMode[int(source_id)-1] = 2
+							} else {
+								WorkMode[int(source_id)-1] = 1
+							}
+
+						}
+
+						// } else if information_data[0] == 129 {
+						// 	//Param2[int(source_id)-1] = int(information_data[2] & 0x7f)
+						// 	if int(information_data[2]) == 0 || int(information_data[2]) == 38 { //空闲状态
+						// 		WorkMode[int(source_id)-1] = 0
+						// 	} else {
+						// 		if int(information_data[2]) == 3 || int(information_data[2]) == 4 || int(information_data[2]) == 5 || int(information_data[2]&0x7) == 6 {
+						// 			WorkMode[int(source_id)-1] = 2
+						// 		} else {
+						// 			WorkMode[int(source_id)-1] = 1
+						// 		}
+
+						// 	}
+
+						// } else if information_data[0] == 138 {
+						// 	//fmt.Println("can回复自动化状态", uint16(information_data[2]), uint16(information_data[3]), uint16(information_data[4]), uint16(information_data[5]), uint16(information_data[6]), uint16(information_data[7]))
+						// 	RandomAutoReceive[source_id-1] = int(information_data[2] >> 7)
+						// 	var autoFollowStatus model.AutoFollowStatus
+						// 	for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
+
+						// 		// auto := Mb.HoldingRegisters[3500+i]
+
+						// 		// auto = (auto & 0x00FF) | (uint16(RandomAutoReceive[i]&0xFF) << 8)
+
+						// 		// Mb.HoldingRegisters[3500+i] = auto
+						// 		autoFollowStatus.IsAutoFollow = RandomAutoReceive
+
+						// 		auto_tuiliu = int(Mb.HoldingRegisters[7000+i] >> 12 & 0x000f)
+						// 		auto_yijia = int(Mb.HoldingRegisters[7000+i] >> 8 & 0x000f)
+						// 		auto_shenhubang = int(Mb.HoldingRegisters[7000+i] >> 4 & 0x000f)
+						// 		auto_shouhubang = int(Mb.HoldingRegisters[7000+i] & 0x000f)
+						// 		if auto_tuiliu == 2 || auto_tuiliu == 3 || auto_tuiliu == 4 || auto_tuiliu == 5 {
+						// 			autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, 2)
+						// 		} else if auto_tuiliu == 7 {
+						// 			autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, int(Mb.HoldingRegisters[7000+i]>>12&0x000f)+7)
+						// 		} else {
+						// 			autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, auto_tuiliu)
+
+						// 		}
+						// 		if auto_yijia == 2 || auto_yijia == 3 || auto_yijia == 4 || auto_yijia == 5 {
+						// 			autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, 2)
+						// 		} else if auto_yijia == 7 {
+						// 			autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, int(Mb.HoldingRegisters[7000+i]>>8&0x000f)+7)
+						// 		} else {
+						// 			autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, auto_yijia)
+
+						// 		}
+						// 		if auto_shenhubang == 2 || auto_shenhubang == 3 || auto_shenhubang == 4 || auto_shenhubang == 5 {
+						// 			autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, 2)
+						// 		} else if auto_shenhubang == 7 {
+						// 			autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, int(Mb.HoldingRegisters[7000+i]>>4&0x000f)+7)
+						// 		} else {
+						// 			autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, auto_shenhubang)
+
+						// 		}
+						// 		if auto_shouhubang == 2 || auto_shouhubang == 3 || auto_shouhubang == 4 || auto_shouhubang == 5 {
+						// 			autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, 2)
+						// 		} else if auto_shouhubang == 7 {
+						// 			autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, int(Mb.HoldingRegisters[7000+i]&0x000f)+7)
+						// 		} else {
+						// 			autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, auto_shouhubang)
+
+						// 		}
+						// 	}
+						// 	WebsocketMessage := model.WebsocketMessage{
+						// 		Type:    "autoFollowStatus",
+						// 		Source:  0,
+						// 		Message: autoFollowStatus,
+						// 	}
+						// 	strings, _ := json.Marshal(WebsocketMessage)
+						// 	service.WebsocketManager.SendAll(strings)
+
+						// 	if Mb.HoldingRegisters[187] == 0 {
+						// 		exist := contains(RandomAutoReceive, 1)
+						// 		if exist {
+						// 			Mb.HoldingRegisters[177] = 1
+						// 		} else {
+						// 			Mb.HoldingRegisters[177] = 0
+						// 		}
+
+						// 	} else {
+						// 		Mb.HoldingRegisters[177] = 1
+						// 	}
+
 					} else if information_data[0] == 144 {
 						//fmt.Println("收到负载率", (uint16(information_data[2])<<8)|uint16(information_data[3]), (uint16(information_data[4])<<8)|uint16(information_data[5]))
 						Mb.HoldingRegisters[185] = (uint16(information_data[2]) << 8) | uint16(information_data[3])
 						Mb.HoldingRegisters[186] = (uint16(information_data[4]) << 8) | uint16(information_data[5])
-					} else if information_data[0] == 101 {
-						fmt.Println("收到需要记录支架运行数据")
-
-						// now := time.Now()
-						// record := model.RecordCommand{TableTime: now}
-						// tableName := record.TableName()
-						// if lastTableName != tableName {
-						// 	lastTableName = tableName
-						// 	fmt.Println("检查表存在 - 时间:", now.Format("2006-01-02 15:04:05"), "表名:", tableName)
-						// 	exit := mysql.Mysqlclient.Migrator().HasTable(tableName)
-						// 	if !exit {
-						// 		fmt.Println("正在创建表: ", tableName)
-						// 		if err := mysql.Mysqlclient.Table(tableName).AutoMigrate(&model.RecordCommand{}); err != nil {
-						// 			log.Println("创建指令记录表异常: ", err)
-
-						// 		} else {
-						// 			// 检查索引是否存在，如果不存在则创建
-						// 			indexName := "idx_time"
-						// 			migrator := mysql.Mysqlclient.Migrator()
-						// 			if !migrator.HasIndex(tableName, indexName) {
-						// 				// 如果不存在，创建索引
-						// 				sql := fmt.Sprintf("CREATE INDEX %s ON %s (time)", indexName, tableName)
-
-						// 				if err := mysql.Mysqlclient.Exec(sql).Error; err != nil {
-						// 					log.Printf("创建索引 %s 失败: %v\n", indexName, err)
-						// 				} else {
-						// 					fmt.Printf("成功创建索引: %s\n", indexName)
-						// 				}
-						// 			}
-						// 		}
-
-						// 	}
-						// }
-
-						temp1 := model.RecordCommand{}
-						temp1.SourceId = int(source_id)
-						temp1.Time = time.Now()
-						temp1.ControlCommandDeviceId = int(information_data[2])
-						//fmt.Println("收到记录支架运行数据-当前命令源", int(information_data[3]))
-						temp1.CurrentCommandSource = strconv.Itoa(int(information_data[3]))
-						//fmt.Println("转化后：", strconv.Itoa(int(information_data[3])))
-						//fmt.Println("m", m, int(information_data[5]), m[int(information_data[5])])
-						commandDiscribe := m[int(information_data[5])]
-						commandCode := int(information_data[5]) & 0x7f
-						if commandCode < 37 && commandCode > 0 {
-							commandDiscribe = m[commandCode]
-							isRun := int(information_data[5] >> 7)
-							if isRun == 1 {
-								commandDiscribe = "启动" + commandDiscribe
-							} else {
-								commandDiscribe = "停止" + commandDiscribe
-							}
-
-						} else {
-
-							if commandDiscribe == "" {
-								commandDiscribe = strconv.Itoa(int(information_data[5]))
-							}
-						}
-
-						temp1.CommandType = commandDiscribe
-						temp1.TableTime = time.Now()
-						fmt.Println("收到记录支架运行数据", temp1)
-						//mysql.Mysqlclient.Table(tableName).Select("Time", "CurrentCommandSource", "ControlCommandDeviceId", "CommandType", "SourceId").Create(&temp1)
-
-						select {
-						case RecordCommandChan <- temp1:
-						default:
-						}
-
 					}
+					//  else if information_data[0] == 101 {
+					// 	fmt.Println("收到需要记录支架运行数据")
+
+					// 	temp1 := model.RecordCommand{}
+					// 	temp1.SourceId = int(source_id)
+					// 	temp1.Time = time.Now()
+					// 	temp1.ControlCommandDeviceId = int(information_data[2])
+					// 	//fmt.Println("收到记录支架运行数据-当前命令源", int(information_data[3]))
+					// 	temp1.CurrentCommandSource = strconv.Itoa(int(information_data[3]))
+					// 	//fmt.Println("转化后：", strconv.Itoa(int(information_data[3])))
+					// 	//fmt.Println("m", m, int(information_data[5]), m[int(information_data[5])])
+					// 	commandDiscribe := m[int(information_data[5])]
+					// 	commandCode := int(information_data[5]) & 0x7f
+					// 	if commandCode < 37 && commandCode > 0 {
+					// 		commandDiscribe = m[commandCode]
+					// 		isRun := int(information_data[5] >> 7)
+					// 		if isRun == 1 {
+					// 			commandDiscribe = "启动" + commandDiscribe
+					// 		} else {
+					// 			commandDiscribe = "停止" + commandDiscribe
+					// 		}
+
+					// 	} else {
+
+					// 		if commandDiscribe == "" {
+					// 			commandDiscribe = strconv.Itoa(int(information_data[5]))
+					// 		}
+					// 	}
+
+					// 	temp1.CommandType = commandDiscribe
+					// 	temp1.TableTime = time.Now()
+					// 	fmt.Println("收到记录支架运行数据", temp1)
+					// 	select {
+					// 	case RecordCommandChan <- temp1:
+					// 	default:
+					// 	}
+
+					// }
 
 					//fmt.Println("0189")
 				} else if data_type == 0x01 && sub_type == 0x84 {
 					CanHeart[source_id-1] = time.Now().Unix()
-					state = Mb.HoldingRegisters[3500+int(source_id-1)] & 0x000f
-					//Mb.HoldingRegisters[3500+int(source_id-1)] = uint16(information_data[6])<<8 | (uint16(information_data[5]) << 4) | (Mb.HoldingRegisters[3500+int(source_id-1)])
-					//if uint16(information_data[6]) > 60 {
-					//fmt.Println("0184当前执行命令", "target_id", target_id, "source_id", source_id, "数据", information_data, "煤机位置", Mb.HoldingRegisters[180])
-					log.Println("0184当前执行命令", "target_id", target_id, "source_id", source_id, "数据", information_data, "煤机位置", Mb.HoldingRegisters[180])
-					//}
-					//柳塔红绿灯
-					// if source_id >= 1 && source_id <= 5 {
-					// 	if (uint16(information_data[2])<<8|(uint16(information_data[3])) == 4) || (uint16(information_data[2])<<8|(uint16(information_data[3])) == 8) {
-					// 		Mb.HoldingRegisters[187+source_id] = 1
-					// 	} else {
-					// 		Mb.HoldingRegisters[187+source_id] = 0
-					// 	}
-					// }
-					// var data upload.RealData
-					// data.Year = time.Now().Year()
-					// data.Month = int(time.Now().Month())
-					// data.Date = time.Now().Day()
-					// data.Hour = time.Now().Hour()
-					// data.Minute = time.Now().Minute()
-					// data.Second = time.Now().Second()
-					// data.SupportNum = int(source_id)
-					// if uint16(information_data[6]) == 30 || uint16(information_data[6]) == 31 || uint16(information_data[6]) == 32 || uint16(information_data[6]) == 34 || uint16(information_data[6]) == 35 {
-					// 	data.ActionType = 0
-					// } else if uint16(information_data[6]) >= 1 && uint16(information_data[6]) <= 29 {
-					// 	data.ActionType = 1
-					// }
-					// data.ActionCode = int(information_data[6])
-					// upload.RealAciton <- data
+					Mb.HoldingRegisters[7000+int(source_id-1)] = uint16(information_data[4])<<8 | uint16(information_data[5])
+					Mb.HoldingRegisters[7300+int(source_id-1)] = uint16(information_data[6])<<8 | uint16(information_data[7])
+					step = int(Mb.HoldingRegisters[179])
+					shearerPosition = int(Mb.HoldingRegisters[180])
+					autoFlowData = Mb.HoldingRegisters[3500+int(source_id-1)]
+					state = autoFlowData & 0x000f
+					//fmt.Println("0184当前执行命令", "target_id", target_id, "source_id", source_id, "数据", information_data, "煤机位置", shearerPosition)
 
-					if uint16(information_data[6]) == 30 {
-						log.Println("自动化动作", "单支架自动移架", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 31 {
+					ismanual := int(information_data[2]) >> 7
+					commandcode := int(information_data[2]) & 0x7f
+					isrun := int(information_data[3]) >> 7
+					commandtype := int(information_data[3]) & 0x7f
+					hubang_shen := int(information_data[4]) >> 4
+					hubang_shou := int(information_data[4]) & 0x0f
+					tuiliu := int(information_data[5]) >> 4
+					yijia := int(information_data[5]) & 0x0f
+
+					autostate := uint16(information_data[4])<<8 | uint16(information_data[5])
+					autobreaksource := uint16(information_data[6])<<8 | uint16(information_data[7])
+					Mb.HoldingRegisters[7000+int(source_id-1)] = uint16(information_data[4])<<8 | uint16(information_data[5])
+					Mb.HoldingRegisters[7300+int(source_id-1)] = uint16(information_data[6])<<8 | uint16(information_data[7])
+
+					Mb.HoldingRegisters[6700+int(source_id-1)] = uint16(isrun)<<8 | uint16(commandtype)
+					if yijia == 6 {
 						state = state | 0x0004
-
-						log.Println("自动化动作", "编组自动移架", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 32 {
+						Mb.HoldingRegisters[3500+int(source_id-1)] = uint16(RandomAutoReceive[source_id-1])<<8 | (uint16(step) << 4) | state
+					}
+					if tuiliu == 6 {
 						state = state | 0x0008
-						log.Println("自动化动作", "编组推溜", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 34 {
+						Mb.HoldingRegisters[3500+int(source_id-1)] = uint16(RandomAutoReceive[source_id-1])<<8 | (uint16(step) << 4) | state
+						//fmt.Println("自动化动作完成，寄存器", 3500+int(source_id-1), Mb.HoldingRegisters[3500+int(source_id-1)], time.Now())
+					}
+					if hubang_shou == 6 {
 						state = state & 0xfffe
 						state = state | 0x0002
-						log.Println("自动化动作", "编组自动收护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 35 {
+						Mb.HoldingRegisters[3500+int(source_id-1)] = uint16(RandomAutoReceive[source_id-1])<<8 | (uint16(step) << 4) | state
+						//fmt.Println("自动化动作完成，寄存器", 3500+int(source_id-1), Mb.HoldingRegisters[3500+int(source_id-1)], time.Now())
+
+					}
+					if hubang_shen == 6 {
 						state = state & 0xfffd
 						state = state | 0x0001
-						log.Println("自动化动作", "编组自动伸护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 1 {
-						log.Println("手动动作", "升柱", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-
-					} else if uint16(information_data[6]) == 2 {
-						log.Println("手动动作", "降柱", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 3 {
-						log.Println("手动动作", "移架", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 4 {
-						log.Println("手动动作", "推溜", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 5 {
-						log.Println("手动动作", "伸一级护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 6 {
-						log.Println("手动动作", "收一级护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-
-						// } else if uint16(information_data[6]) == 7 {
-						// 	log.Println("手动动作", "伸前梁", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 8 {
-						// 	log.Println("手动动作", "收前梁", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-					} else if uint16(information_data[6]) == 9 {
-						log.Println("手动动作", "起底", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 10 {
-						log.Println("手动动作", "伸平衡", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 11 {
-						log.Println("手动动作", "收平衡", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-					} else if uint16(information_data[6]) == 12 {
-						log.Println("手动动作", "开喷雾", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9], Mb.HoldingRegisters[179], RandomAutoReceive[source_id-1])
-
-						// } else if uint16(information_data[6]) == 13 {
-						// 	log.Println("手动动作", "抬低移架", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 14 {
-						// 	log.Println("手动动作", "伸侧护板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 15 {
-						// 	log.Println("手动动作", "收侧护板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 16 {
-						// 	log.Println("手动动作", "伸底调", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 17 {
-						// 	log.Println("手动动作", "收底调", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 18 {
-						// 	log.Println("手动动作", "降柱抬底", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 19 {
-						// 	log.Println("手动动作", "反冲洗", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 20 {
-						// 	log.Println("手动动作", "伸二级护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 21 {
-						// 	log.Println("手动动作", "收二级护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 22 {
-						// 	log.Println("手动动作", "伸三级护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 23 {
-						// 	log.Println("手动动作", "收三级护帮板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 24 {
-						// 	log.Println("手动动作", "升后柱", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 25 {
-						// 	log.Println("手动动作", "降后柱", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 26 {
-						// 	log.Println("手动动作", "打开插板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 27 {
-						// 	log.Println("手动动作", "关闭插板", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 28 {
-						// 	log.Println("手动动作", "推后溜", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
-						// } else if uint16(information_data[6]) == 29 {
-						// 	log.Println("手动动作", "拉后溜", source_id, Mb.HoldingRegisters[180], Mb.HoldingRegisters[1522+(int(source_id)-1)*9],Mb.HoldingRegisters[179])
+						Mb.HoldingRegisters[3500+int(source_id-1)] = uint16(RandomAutoReceive[source_id-1])<<8 | (uint16(step) << 4) | state
+						//fmt.Println("自动化动作完成，寄存器", 3500+int(source_id-1), Mb.HoldingRegisters[3500+int(source_id-1)], time.Now())
 					}
 
-					Mb.HoldingRegisters[3500+int(source_id-1)] = uint16(information_data[6])<<8 | (uint16(information_data[5]) << 4) | state
-					fmt.Println("寄存器", 3500+int(source_id-1), Mb.HoldingRegisters[3500+int(source_id-1)])
-					// fmt.Println("收到了命令码", source_id, information_data[6]&0x7f)
-					// CommandCode := information_data[6] & 0x7f
-					// if CommandCode > 0 && CommandCode < 30 { //手动命令
-					// 	if int(math.Abs(float64(int(Mb.HoldingRegisters[180])-int(source_id)*10))) < utils.Conf.MODEPARAM.PositionLimit { //位置限制和手动频率限制
-					// 		fmt.Println("收到了手动命令码", source_id, information_data[6]&0x7f)
-					// 		if int(time.Now().Unix()-LastMode2Time[int(source_id)-1]) > utils.Conf.MODEPARAM.TimeInterval {
-					// 			WorkMode[source_id-1] = 2
-					// 			WorkModeTime[source_id-1] = time.Now().Unix()
-					// 			LastMode2Time[int(source_id)-1] = time.Now().Unix()
-					// 		}
+					temp1 := model.RecordCommand{}
+					temp1.SourceId = int(source_id)
+					temp1.Time = time.Now()
+					//发命令设备id
+					temp1.ControlCommandDeviceId = int(information_data[0])<<8 | int(information_data[1])
+					//fmt.Println("收到记录支架运行数据-当前命令源", int(information_data[3]))
+					//当前命令源 0x00:手动操作 0x01:自动化操作 0x02:远程操作 0x03:本地操作
+					temp1.CurrentCommandSource = strconv.Itoa(commandcode)
+					temp1.IsManual = ismanual
+					temp1.IsRun = isrun
+					temp1.AutoState = int(autostate)
+					temp1.AutoBreakSource = int(autobreaksource)
+					temp1.ShearerStep = step
+					temp1.ShearerPosition = shearerPosition
+					//fmt.Println("转化后：", strconv.Itoa(int(information_data[3])))
+					//fmt.Println("m", m, int(information_data[5]), m[int(information_data[5])])
+					commandDiscribe := m[commandtype]
+					if commandDiscribe == "" {
+						commandDiscribe = strconv.Itoa(commandtype)
+					}
 
-					// 	} else {
-					// 		fmt.Println("过滤手动命令", source_id, information_data[6]&0x7f, (int(math.Abs(float64(int(Mb.HoldingRegisters[180]) - int(source_id)*10)))))
-					// 		WorkMode[source_id-1] = 0
-					// 	}
+					temp1.CommandType = commandDiscribe
+					temp1.TableTime = time.Now()
+					fmt.Println("收到记录支架运行数据", temp1)
+					//mysql.Mysqlclient.Table(tableName).Select("Time", "CurrentCommandSource", "ControlCommandDeviceId", "CommandType", "SourceId").Create(&temp1)
 
-					// } else if CommandCode > 30 && CommandCode < 37 { //自动命令
-					// 	fmt.Println("收到了自动化命令码", source_id, information_data[6]&0x7f)
-					// 	WorkMode[source_id-1] = 1
-					// 	WorkModeTime[source_id-1] = time.Now().Unix()
-					// }
+					select {
+					case RecordCommandChan <- temp1:
+					default:
+					}
 
-					// if information_data[6] == 38 {
-					// 	IsAuto[int(source_id-1)] = 1
-					// }
-					// if IsAuto[int(source_id-1)] < 2 {
-
-					// } else {
-					// 	Mb.HoldingRegisters[3500+int(source_id-1)] = uint16(0)<<8 | (uint16(information_data[5]) << 4) | uint16(information_data[1]&0x0f)
-					// 	var autoFollowStatus model.AutoFollowStatus
-					// 	for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
-					// 		autoFollowStatus.IsAutoFollow = append(autoFollowStatus.IsAutoFollow, int(Mb.HoldingRegisters[3500+i]>>8&0x00ff))
-					// 		autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, int(Mb.HoldingRegisters[3500+i]>>3&0x0001))
-					// 		autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, int(Mb.HoldingRegisters[3500+i]>>2&0x0001))
-					// 		autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, int(Mb.HoldingRegisters[3500+i]>>1&0x0001))
-					// 		autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, int(Mb.HoldingRegisters[3500+i]&0x0001))
-					// 	}
-					// 	WebsocketMessage := model.WebsocketMessage{
-					// 		Type:    "autoFollowStatus",
-					// 		Source:  0,
-					// 		Message: autoFollowStatus,
-					// 	}
-					// 	strings, _ := json.Marshal(WebsocketMessage)
-					// 	service.WebsocketManager.SendAll(strings)
-					// }
-					// if information_data[6] == 39 {
-					// 	IsAuto[int(source_id-1)] = 2
-					// }
-					// if mysql.Mysqlclient != nil {
-					// 	user := model.CanActionData{Time: time.Now(), CanId: canid, Len: len(information_data), Information: information_data_string}
-					// 	mysql.Mysqlclient.Select("Time", "Type", "CanId", "Len", "Information").Create(&user)
-					// }
-					//fmt.Println("0184")
 				} else if data_type == 0x00 && sub_type == 0x01 { //紧急故障广播
 					// if source_id != 180 {
 					// 	CanHeart[source_id-1] = time.Now().Unix()
@@ -1515,6 +1493,24 @@ func CANConfigurationPrivateParameterWeb(targetid int, param13 uint16, param14 u
 	cf.FrameID = assembleCanID(0x00, 0x0e, byte(targetid), byte(14))
 	cf.Data[0] = byte(param14 >> 8)
 	cf.Data[1] = byte(param14 & 0x00ff)
+	if targetid < utils.Conf.CAN.Point1 {
+		sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIp1)
+	} else if targetid >= utils.Conf.CAN.Point1 && targetid < utils.Conf.CAN.Point2 {
+		sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIp2)
+	} else if targetid >= utils.Conf.CAN.Point2 {
+		sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIp3)
+	}
+
+}
+
+// 给支架控制器发送位移补偿值
+func CANSendCompensationDisplacement(targetid int, param2 uint16) {
+	//fmt.Println("给支架控制器发送位移补偿值-", "支架号", targetid, param2)
+	cf := CanFrame{}
+	cf.Length = 2
+	cf.FrameID = assembleCanID(0x00, 0x07, byte(targetid), byte(6))
+	cf.Data[0] = byte(param2 >> 8)
+	cf.Data[1] = byte(param2 & 0x00ff)
 	if targetid < utils.Conf.CAN.Point1 {
 		sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIp1)
 	} else if targetid >= utils.Conf.CAN.Point1 && targetid < utils.Conf.CAN.Point2 {
@@ -1895,8 +1891,10 @@ func CANSendCommand1(ctx context.Context) {
 						} else if int(targetID) >= utils.Conf.CAN.Point2 && int(targetID) < utils.Conf.CAN.PointExtra {
 							sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIp3)
 						} else if int(targetID) >= utils.Conf.CAN.PointExtra && int(targetID) < utils.Conf.CAN.PointExtra1 {
+							fmt.Println("发送超前", utils.Conf.CAN.Can2udpIpExtra)
 							sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIpExtra)
 						} else if int(targetID) >= utils.Conf.CAN.PointExtra1 {
+							fmt.Println("发送挡矸", cf, cf.ToByte(), utils.Conf.CAN.Can2udpIpExtra1)
 							sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIpExtra1)
 						}
 					}
@@ -2057,7 +2055,7 @@ func CanAutoState(ctx context.Context, mb *mbserver.Server) {
 			// cf.Data[1] = byte(3)
 			// sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIp1)
 
-			cf.Data[0] = byte(138)
+			cf.Data[0] = byte(124)
 			cf.Data[1] = byte(3)
 			sendUDPdata(cf.ToByte(), utils.Conf.CAN.Can2udpIp1)
 			// <-tickerSendTime.C
@@ -2104,6 +2102,8 @@ func SetShearerParam(ctx context.Context, mb *mbserver.Server) {
 				for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
 					isauto := Mb.HoldingRegisters[3500+int(i)] >> 8
 					Mb.HoldingRegisters[3500+int(i)] = isauto<<8 | (tempCmd.Step << 4) | uint16(0)
+					Mb.HoldingRegisters[7000+int(i)] = 0
+					Mb.HoldingRegisters[7300+int(i)] = 0
 				}
 			}
 			//偶数工步的时候 工步下发的是前一工步，也就是奇数工步
@@ -2528,7 +2528,7 @@ func findClosestKeyWithValueZero(m map[int]int, targetID int) (int, int) {
 			}
 		}
 	}
-	fmt.Println("坏的传感器是: ", targetID, "找到最近的好的传感器:", closestKey, value)
+	//fmt.Println("坏的传感器是: ", targetID, "找到最近的好的传感器:", closestKey, value)
 	return closestKey, value
 }
 
@@ -2560,7 +2560,7 @@ func findClosestKeyWithValueZeroNew(m map[int]int, targetID int) (int, int) {
 	})
 	//log.Println("坏的传感器是:", targetID, "对好的行程传感器与坏的目标传感器按距离差进行排序", candidates)
 	closestKey := candidates[0].key
-	fmt.Println("坏的传感器是:", targetID, "找到最近的好的传感器:", closestKey, "距离:", candidates[0].distance)
+	//fmt.Println("坏的传感器是:", targetID, "找到最近的好的传感器:", closestKey, "距离:", candidates[0].distance)
 
 	// 如果有多个相同距离的候选，可以在这里处理
 	// if len(candidates) > 1 && candidates[0].distance == candidates[1].distance {
@@ -2604,7 +2604,8 @@ func SendWebsocket(ctx context.Context, PressLastTime []time.Time, RandomAutoRec
 				if Mb.HoldingRegisters[5000+i] > 0 {
 					closestKey, _ := findClosestKeyWithValueZeroNew(SensorCache, i+1)
 					if closestKey == -1 {
-						//log.Println("没有找到最近的好的传感器，坏的传感器是: ", i+1)
+						//fmt.Println("没有找到最近的好的传感器，坏的传感器是: ", i+1)
+						//if i==34{CANSendCompensationDisplacement(35, 300)}
 						simulationStatus.PushItinerary = append(simulationStatus.PushItinerary, int(Mb.HoldingRegisters[1522+i*9]))
 					} else {
 						var badValue int
@@ -2627,8 +2628,9 @@ func SendWebsocket(ctx context.Context, PressLastTime []time.Time, RandomAutoRec
 							value = int(Mb.HoldingRegisters[1522+(closestKey-1)*9])
 						}
 						Mb.HoldingRegisters[1522+i*9] = uint16(value)
+						CANSendCompensationDisplacement(i+1, uint16(value))
 						simulationStatus.PushItinerary = append(simulationStatus.PushItinerary, value)
-						//log.Println("坏的传感器:", i+1, "找到了最近的好的传感器：", closestKey, "好的行程：", int(Mb.HoldingRegisters[1522+(closestKey-1)*9]), int(Mb.HoldingRegisters[5800+i]), int(Mb.HoldingRegisters[5800+closestKey-1]), "计算的结果：", value)
+						//fmt.Println("坏的传感器:", i+1, "找到了最近的好的传感器：", closestKey, "好的行程：", int(Mb.HoldingRegisters[1522+(closestKey-1)*9]), int(Mb.HoldingRegisters[5800+i]), int(Mb.HoldingRegisters[5800+closestKey-1]), "计算的结果：", value)
 						//log.Println("坏的传感器:", i+1, "找到了最近的好的传感器：", closestKey, "好的行程：", int(Mb.HoldingRegisters[1522+(closestKey-1)*9]), goodValue, badValue, "计算的结果：", value)
 
 					}
@@ -2662,17 +2664,70 @@ func SendWebsocket(ctx context.Context, PressLastTime []time.Time, RandomAutoRec
 			var autoFollowStatus model.AutoFollowStatus
 			for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
 				autoFollowStatus.IsAutoFollow = RandomAutoReceive
-				autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, int(Mb.HoldingRegisters[3500+i]>>3&0x0001))
-				autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, int(Mb.HoldingRegisters[3500+i]>>2&0x0001))
-				autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, int(Mb.HoldingRegisters[3500+i]>>1&0x0001))
-				autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, int(Mb.HoldingRegisters[3500+i]&0x0001))
+				auto_shenhubang = int(Mb.HoldingRegisters[7000+i] >> 12 & 0x000f)
+				auto_shouhubang = int(Mb.HoldingRegisters[7000+i] >> 8 & 0x000f)
+				auto_tuiliu = int(Mb.HoldingRegisters[7000+i] >> 4 & 0x000f)
+				auto_yijia = int(Mb.HoldingRegisters[7000+i] & 0x000f)
+				if auto_tuiliu == 2 || auto_tuiliu == 3 || auto_tuiliu == 4 || auto_tuiliu == 5 {
+					autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, 2)
+				} else if auto_tuiliu == 7 {
+					autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, int(Mb.HoldingRegisters[7300+i]>>4&0x000f)+7)
+				} else {
+					autoFollowStatus.CompleteAutomaticPush = append(autoFollowStatus.CompleteAutomaticPush, auto_tuiliu)
+
+				}
+				if auto_yijia == 2 || auto_yijia == 3 || auto_yijia == 4 || auto_yijia == 5 {
+					autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, 2)
+				} else if auto_yijia == 7 {
+					autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, int(Mb.HoldingRegisters[7300+i]&0x000f)+7)
+					//fmt.Println("移架中断源值：", Mb.HoldingRegisters[7300+i], time.Now())
+				} else {
+					autoFollowStatus.CompleteAutomaticRackTransfer = append(autoFollowStatus.CompleteAutomaticRackTransfer, auto_yijia)
+
+				}
+				if auto_shenhubang == 2 || auto_shenhubang == 3 || auto_shenhubang == 4 || auto_shenhubang == 5 {
+					autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, 2)
+				} else if auto_shenhubang == 7 {
+					autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, int(Mb.HoldingRegisters[7300+i]>>12&0x000f)+7)
+				} else {
+					autoFollowStatus.CompleteAutomaticExtension = append(autoFollowStatus.CompleteAutomaticExtension, auto_shenhubang)
+
+				}
+				if auto_shouhubang == 2 || auto_shouhubang == 3 || auto_shouhubang == 4 || auto_shouhubang == 5 {
+					autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, 2)
+				} else if auto_shouhubang == 7 {
+					autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, int(Mb.HoldingRegisters[7300+i]>>8&0x000f)+7)
+				} else {
+					autoFollowStatus.CompleteAutomaticCare = append(autoFollowStatus.CompleteAutomaticCare, auto_shouhubang)
+
+				}
 				if isCqljWarningSupport(i, utils.SupportSort) {
 					autoFollowStatus.Cqlj = append(autoFollowStatus.Cqlj, 1)
+					//超前拉架写入
+					Mb.HoldingRegisters[6100+i] = 1
 				} else {
 					autoFollowStatus.Cqlj = append(autoFollowStatus.Cqlj, 0)
+					Mb.HoldingRegisters[6100+i] = 0
+				}
+				isRunSupportState = int(Mb.HoldingRegisters[6700+i]>>8) & 0x00ff
+				supportState = int(Mb.HoldingRegisters[6700+i]) & 0x00ff
+				//fmt.Println("支架号", i+1, "运行状态", isRunSupportState, "支架状态", supportState, "寄存器值", Mb.HoldingRegisters[6700+i])
+				if isRunSupportState == 0 {
+					autoFollowStatus.SupportState = append(autoFollowStatus.SupportState, 0)
+				} else {
+
+					if supportState > 6 {
+						autoFollowStatus.SupportState = append(autoFollowStatus.SupportState, 7)
+					} else {
+						autoFollowStatus.SupportState = append(autoFollowStatus.SupportState, supportState)
+					}
 				}
 
+				//autoFollowStatus.Version = append(autoFollowStatus.Version, int(Mb.HoldingRegisters[7600+i]))
+
 			}
+			//log.Println("往前端推送自动化相关数据，时间：", time.Now(), "伸护帮：", autoFollowStatus.CompleteAutomaticExtension, "收护帮：", autoFollowStatus.CompleteAutomaticCare, "推溜：", autoFollowStatus.CompleteAutomaticPush, "移架：", autoFollowStatus.CompleteAutomaticRackTransfer, "单支架：", autoFollowStatus.SupportState)
+
 			WebsocketMessage = model.WebsocketMessage{
 				Type:    "autoFollowStatus",
 				Source:  0,
@@ -2971,7 +3026,7 @@ func batchInsertWithRetry(tableName string, records []model.RecordCommand) {
 	// 指定要插入的字段（根据实际需要，建议加上 TableTime）
 	// 注意：如果 TableTime 需要存入库中，请取消注释下一行；若不需要，可保持原样
 	// fields := []string{"Time", "CurrentCommandSource", "ControlCommandDeviceId", "CommandType", "SourceId", "TableTime"}
-	fields := []string{"Time", "CurrentCommandSource", "ControlCommandDeviceId", "CommandType", "SourceId"}
+	fields := []string{"Time", "CurrentCommandSource", "ControlCommandDeviceId", "CommandType", "SourceId", "IsRun", "IsManual", "AutoState", "AutoBreakSource"}
 
 	for i := 0; i < maxRetry; i++ {
 		err := db.Table(tableName).Select(fields).Create(&records).Error

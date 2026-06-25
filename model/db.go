@@ -166,7 +166,13 @@ type RecordCommand struct {
 	ControlCommandDeviceId int       `json:"control_command_device_id"` //控制命令设备ID
 	CommandType            string    `json:"command_type"`              //当前执行的动作
 	SourceId               int       `json:"source_id"`
-	TableTime              time.Time `json:"-"` // 新增字段
+	IsRun                  int       `json:"is_run"`            //启停标志
+	IsManual               int       `json:"is_manual"`         //是否手动干预标志
+	AutoState              int       `json:"auto_state"`        //自动化状态
+	AutoBreakSource        int       `json:"auto_break_source"` //中断源
+	ShearerPosition        int       `json:"shearer_position"`  //煤机位置
+	ShearerStep            int       `json:"shearer_step"`      //煤机工步
+	TableTime              time.Time `json:"-"`                 // 新增字段
 }
 
 func (r RecordCommand) TableName() string {

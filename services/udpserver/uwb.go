@@ -2,12 +2,15 @@ package udpserver
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sort"
 
 	"gocode/utils"
 	"net"
 	"time"
+
+	"github.com/tbrandon/mbserver"
 )
 
 type UWBCard struct {
@@ -101,7 +104,7 @@ func GetUwb(ctx context.Context) {
 				thisBsStatus = append(thisBsStatus, 0)
 			}
 
-			log.Printf("接收到来自%v的数据,数据为%v\n", addr, buffer[0:n])
+			fmt.Printf("接收到来自%v的数据,数据为%v\n", addr, buffer[0:n])
 			CRC_JY = 0
 			for i := 2; i < 21; i++ {
 				CRC_JY += uint16(buffer[i])
@@ -411,8 +414,8 @@ func GetUwb(ctx context.Context) {
 	}
 }
 
-func GetUwb_Three(ctx context.Context) {
-
+func GetUwb_Three(ctx context.Context, mb *mbserver.Server) {
+	fmt.Println("人员定位UDP开始")
 	var Station1Pos uint32 = 38
 	var Station2Pos uint32 = 104
 	var Station3Pos uint32 = 170
@@ -428,7 +431,7 @@ func GetUwb_Three(ctx context.Context) {
 		return
 	}
 	defer UDPConn.Close()
-	//log.Println("人员定位UDP开始监听")
+	log.Println("人员定位UDP开始监听")
 	var buffer [512]byte
 	var CRC_JY uint16
 	var UWBData [3][10]UWBCard
@@ -438,6 +441,7 @@ func GetUwb_Three(ctx context.Context) {
 	var idOpenBs []int64
 	var lastDistancelist [3][10]uint32
 	var lastCardSupport [10]int
+	var uwbpos []uint16
 
 	for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
 		lastOpenBstime = append(lastOpenBstime, 0)
@@ -494,12 +498,15 @@ func GetUwb_Three(ctx context.Context) {
 			}
 
 			thisBsStatus = []int{}
+			uwbpos = []uint16{}
 			for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
 				thisBsStatus = append(thisBsStatus, 0)
+				uwbpos = append(uwbpos, 0)
 			}
 
 			log.Printf("接收到来自%v的数据,数据为%v\n", addr, buffer[0:n])
 			if n < 23 {
+				log.Printf("UWB数据长度异常: n=%d, addr=%v, data=%v", n, addr, buffer[:n])
 				continue
 			}
 			CRC_JY = 0
@@ -512,7 +519,7 @@ func GetUwb_Three(ctx context.Context) {
 			High8 := byte((CRC_JY & 0xFF00) >> 8)
 			//CRC校验
 			if (Low8 == buffer[21]) && (High8 == buffer[22]) {
-				//log.Println("开始进行CRC校验：", buffer[0], buffer[1], buffer[2], buffer[3], "对比：", 0xdd, 0x66, 0x17, 0x11)
+				//fmt.Println("开始进行CRC校验：", buffer[0], buffer[1], buffer[2], buffer[3], "对比：", 0xdd, 0x66, 0x17, 0x11)
 				//log.Printf("开始进行CRC校验: [%02x %02x %02x %02x] 对比: [%02x %02x %02x %02x]\n", buffer[0], buffer[1], buffer[2], buffer[3], 0xdd, 0x66, 0x17, 0x11)
 				//包头+长度+类型判断
 				if buffer[0] == 0xdd && buffer[1] == 0x66 && buffer[2] == 0x17 && buffer[3] == 0x11 {
@@ -520,7 +527,7 @@ func GetUwb_Three(ctx context.Context) {
 
 					log.Printf("IP: %s, 读取到的标签卡ID: [%02x %02x %02x %02x]\n", addr.IP.String(), buffer[8], buffer[9], buffer[10], buffer[11])
 
-					if addr.IP.String() == "172.16.0.99" {
+					if addr.IP.String() == "192.168.12.187" {
 						if buffer[8] == 0x4A && buffer[9] == 0x26 && buffer[10] == 0xEA && buffer[11] == 0x61 { //1号基站1号标签卡
 
 							lastDistancelist[0][0] = UWBData[0][0].Distance
@@ -980,7 +987,7 @@ func GetUwb_Three(ctx context.Context) {
 				lastCardSupport[i] = CardSupport[i]
 			}
 
-			// 维护闭锁列表（与原逻辑相同）
+			// 维护闭锁列表
 			for i := 0; i < 10; i++ {
 				if CardSupport[i] != 0 {
 					log.Println(i+1, "闭锁,根据标签卡位置更新闭锁状态与时间")
@@ -993,6 +1000,8 @@ func GetUwb_Three(ctx context.Context) {
 						thisBsStatus[idx] = 1
 						lastOpenBstime[idx] = time.Now().Unix()
 					}
+					uwbpos[pos-1] = 1
+
 				}
 			}
 			log.Println("uwb基站给出一次数据后", thisBsStatus, "")
@@ -1005,6 +1014,12 @@ func GetUwb_Three(ctx context.Context) {
 					BSOpen(byte(i + 1))
 				}
 			}
+			//维护人员定位位置，给外部系统
+			for i := 0; i < len(uwbpos); i++ {
+
+				mb.HoldingRegisters[6400+i] = uwbpos[i]
+			}
+			log.Println("uwb基站-写人员位置信息给到外部系统使用", uwbpos, "")
 		}
 	}
 }

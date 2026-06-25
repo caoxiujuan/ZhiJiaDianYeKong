@@ -295,7 +295,7 @@ func (c *Client) Write() {
 			// log.Printf("client [%s] write message: %s", c.Id, string(message))
 			err := c.Socket.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
-				log.Printf("client [%s] writemessage err: %s", c.Id, message, err)
+				log.Printf("client [%s] writemessage err: %s, message: %s", c.Id, err, string(message))
 				//log.Printf("client [%s] writemessage err: %s", c.Id, err)
 				return
 			}

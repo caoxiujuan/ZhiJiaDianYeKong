@@ -314,6 +314,9 @@ func main() {
 
 		v.POST("/getrecordcommand", controller.RecordCommandQuery1)
 		v.POST("/getrecordcommandwithpagination", controller.RecordCommandQuery1)
+
+		v.POST("/supportVersion", controller.SupportVersionQuery)
+
 	}
 
 	go func() {
@@ -347,7 +350,8 @@ func main() {
 	go udpService.CanAutoState(ctx, MBServer)        //can自动化上传
 	go udpService.ReadRemoteControl(ctx, m1, m2, m3) //远控平台
 	go udpService.CANCalibrationTime(ctx)            //修改控制器时间
-	go udpService.GetUwb_Three(ctx)                  //人员定位
+	go udpService.CanLoadRate(ctx, MBServer)         //can负载率
+	go udpService.GetUwb_Three(ctx, MBServer)        //人员定位
 
 	//go upload.TestRecordCommandMysql(ctx) //用于测试支架运行数据记录的
 	//go mysql.SQLTest(ctx)

@@ -516,6 +516,15 @@ func SupportNumQuery(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": utils.Conf.SYSTEM.SupportNum})
 }
 
+// 查询所有支架程序版本号
+func SupportVersionQuery(c *gin.Context) {
+	versions := make([]int, 0, utils.Conf.SYSTEM.SupportNum)
+	for i := 0; i < utils.Conf.SYSTEM.SupportNum; i++ {
+		versions = append(versions, int(udpService.Mb.HoldingRegisters[7600+i]))
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 0, "message": versions})
+}
+
 func SupportPositionQuery(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code1": 0, "message1": int(udpService.Mb.HoldingRegisters[180])})
 }

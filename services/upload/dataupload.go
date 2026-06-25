@@ -36,9 +36,10 @@ type RealData struct {
 
 var (
 	// MBServer modbus instance
-	MBServerUpLoad *mbserver.Server
-	RealAciton     chan RealData
-	lastTableName  string
+	MBServerUpLoad         *mbserver.Server
+	RealAciton             chan RealData
+	lastTableName          string
+	MBServerUpLoadToSheare *mbserver.Server
 )
 
 type clientInfo struct {
@@ -49,10 +50,38 @@ type clientInfo struct {
 	State     string // e.g. ESTABLISHED, TIME_WAIT
 }
 
+// StartDataUpLoadToSheare 向煤机上传数据
+func StartDataUpLoadToSheare(ctx context.Context, mb *mbserver.Server, IsAuto []int, WorkMode []int, Param1 []int, Param2 []int, Param3 []int, Param4 []int, cancel context.CancelFunc, PressLastTimebuzu []time.Time, PressLastTimebuzu_you []time.Time) {
+	tickerTime := time.NewTicker(time.Second * 1)
+	defer tickerTime.Stop()
+	MBServerUpLoadToSheare = mbserver.NewServer()
+	err := MBServerUpLoadToSheare.ListenTCP(":4502")
+	if err != nil {
+		log.Println("MBServerUpLoadToSheare", err)
+		log.Fatalf("MBServerUpLoadToSheare: %s\n", err)
+		cancel()
+	}
+	defer MBServerUpLoadToSheare.Close()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tickerTime.C:
+			MBServerUpLoadToSheare.HoldingRegisters[0] = uint16(modbus.HeartCount)
+			for i := 1; i <= utils.Conf.SYSTEM.SupportNum; i++ {
+				advance := mb.HoldingRegisters[6100+(i-1)] & 1 // 超前拉架
+				person := mb.HoldingRegisters[6400+(i-1)] & 1  // 人员位置
+
+				MBServerUpLoadToSheare.HoldingRegisters[1+(i-1)] = person<<1 | advance
+			}
+		}
+	}
+}
+
 // 给矿上上传支架数据
 func StartDataUpLoad(ctx context.Context, mb *mbserver.Server, IsAuto []int, WorkMode []int, Param1 []int, Param2 []int, Param3 []int, Param4 []int, cancel context.CancelFunc, PressLastTimebuzu []time.Time, PressLastTimebuzu_you []time.Time) {
 	tickerTime := time.NewTicker(time.Second * 60)
-	//defer tickerTime.Stop()
+	defer tickerTime.Stop()
 	MBServerUpLoad = mbserver.NewServer()
 	err := MBServerUpLoad.ListenTCP(":3502")
 	if err != nil {
@@ -598,7 +627,7 @@ func RecordAutoActionData(ctx context.Context, mb *mbserver.Server) {
 					mysql.Mysqlclient.Select("Time", "AutoActionData").Create(&data)
 				}
 				//last_strings = strings
-				fmt.Println("自动跟机数据记录数据库")
+				//fmt.Println("自动跟机数据记录数据库")
 			}
 
 		}
