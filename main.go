@@ -333,8 +333,10 @@ func main() {
 	go udpService.SetShearerParam(ctx, MBServer)
 	//煤机数据读取
 	go modbus.Run(ctx, MBServer)
-	go udpService.FirstPublicQuery()                                                                                                             //程序启动后主动问询一次公参
+	go udpService.FirstPublicQuery() //程序启动后主动问询一次公参
+	go upload.StartDataUpLoadToSheare(ctx, MBServer, cancel)
 	go upload.StartDataUpLoad(ctx, MBServer, IsAuto, WorkMode, Param1, Param2, Param3, Param4, cancel, PressLastTimebuzu, PressLastTimebuzu_you) //数据上传
+	go upload.StartMinePressureFTPUpLoad(ctx)
 	//go upload.StartRealDataUpLoad(ctx, MBServer, cancel)       //王总
 	// go udpService.StartDBWorker()            //王总
 	// go udpService.StartDBSendDataWorker()    //王总

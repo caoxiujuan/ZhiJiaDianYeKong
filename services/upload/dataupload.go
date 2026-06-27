@@ -1,14 +1,18 @@
 package upload
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"net"
+	"net/textproto"
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 
 	"gocode/model"
 	"gocode/services/modbus"
@@ -42,6 +46,20 @@ var (
 	MBServerUpLoadToSheare *mbserver.Server
 )
 
+const (
+	minePressureFTPAddr      = "10.246.87.87:21"
+	minePressureFTPUser      = "Administrator"
+	minePressureFTPPass      = "Lt369#^("
+	minePressureMineCode     = "15062701165011"
+	minePressureMineName     = "\u67f3\u5854-2207"
+	minePressureFaceCode     = "1101"
+	minePressureSensorPrefix = "MN110100"
+	minePressureAlarmValue   = 250
+	minePressureFTPTimeout   = 10 * time.Second
+)
+
+var minePressureFTPUploadDirs = []string{"/ky"}
+
 type clientInfo struct {
 	Addr      string
 	Port      int
@@ -50,8 +68,15 @@ type clientInfo struct {
 	State     string // e.g. ESTABLISHED, TIME_WAIT
 }
 
+type minePressureFTPClient struct {
+	conn    net.Conn
+	reader  *textproto.Reader
+	writer  *textproto.Writer
+	timeout time.Duration
+}
+
 // StartDataUpLoadToSheare 向煤机上传数据
-func StartDataUpLoadToSheare(ctx context.Context, mb *mbserver.Server, IsAuto []int, WorkMode []int, Param1 []int, Param2 []int, Param3 []int, Param4 []int, cancel context.CancelFunc, PressLastTimebuzu []time.Time, PressLastTimebuzu_you []time.Time) {
+func StartDataUpLoadToSheare(ctx context.Context, mb *mbserver.Server, cancel context.CancelFunc) {
 	tickerTime := time.NewTicker(time.Second * 1)
 	defer tickerTime.Stop()
 	MBServerUpLoadToSheare = mbserver.NewServer()
@@ -89,73 +114,74 @@ func StartDataUpLoad(ctx context.Context, mb *mbserver.Server, IsAuto []int, Wor
 		log.Fatalf("MBServerUpLoad: %s\n", err)
 		cancel()
 	}
+	//fmt.Println("矿压数据上传开始")
 	defer MBServerUpLoad.Close()
-	clients := make(map[string]*clientInfo)
-	var clientsMtx sync.Mutex
+	// clients := make(map[string]*clientInfo)
+	// var clientsMtx sync.Mutex
 
 	// 监测 goroutine
-	go func() {
-		ticker := time.NewTicker(60 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				active := scanNetstatForPort(3502)
-				now := time.Now()
+	// go func() {
+	// 	ticker := time.NewTicker(60 * time.Second)
+	// 	defer ticker.Stop()
+	// 	for {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			return
+	// 		case <-ticker.C:
+	// 			active := scanNetstatForPort(3502)
+	// 			now := time.Now()
 
-				clientsMtx.Lock()
-				// 更新表
-				for addr, ci := range clients {
-					// 默认标记为离线，后面如果在 active 中就会刷新
-					ci.State = "OFFLINE"
-					// 如果长时间未见，保留记录但标记为离线
-					if now.Sub(ci.LastSeen) > 24*time.Hour {
-						delete(clients, addr)
+	// 			clientsMtx.Lock()
+	// 			// 更新表
+	// 			for addr, ci := range clients {
+	// 				// 默认标记为离线，后面如果在 active 中就会刷新
+	// 				ci.State = "OFFLINE"
+	// 				// 如果长时间未见，保留记录但标记为离线
+	// 				if now.Sub(ci.LastSeen) > 24*time.Hour {
+	// 					delete(clients, addr)
 
-					}
-				}
+	// 				}
+	// 			}
 
-				for _, a := range active {
-					if a.ip != "0.0.0.0" && a.ip != "::]" {
-						key := a.ip + ":" + strconv.Itoa(a.port)
-						ci, ok := clients[key]
-						if !ok {
-							ci = &clientInfo{Addr: a.ip, Port: a.port, FirstSeen: now, LastSeen: now, State: a.state}
-							clients[key] = ci
-							//fmt.Println("modbusload监听到不在线", ci)
-						} else {
-							ci.LastSeen = now
-							ci.State = a.state
-							fmt.Println("modbusload监听到在线情况", ci)
-						}
-					}
+	// 			for _, a := range active {
+	// 				if a.ip != "0.0.0.0" && a.ip != "::]" {
+	// 					key := a.ip + ":" + strconv.Itoa(a.port)
+	// 					ci, ok := clients[key]
+	// 					if !ok {
+	// 						ci = &clientInfo{Addr: a.ip, Port: a.port, FirstSeen: now, LastSeen: now, State: a.state}
+	// 						clients[key] = ci
+	// 						//fmt.Println("modbusload监听到不在线", ci)
+	// 					} else {
+	// 						ci.LastSeen = now
+	// 						ci.State = a.state
+	// 						fmt.Println("modbusload监听到在线情况", ci)
+	// 					}
+	// 				}
 
-				}
-				for _, cisave := range clients {
+	// 			}
+	// 			for _, cisave := range clients {
 
-					var count int64
-					mysql.Mysqlclient.Model(&model.ModbusUploadCommuction{}).Where("Ip = ? AND Port=? ", cisave.Addr, cisave.Port).Count(&count)
-					if count > 0 {
+	// 				var count int64
+	// 				mysql.Mysqlclient.Model(&model.ModbusUploadCommuction{}).Where("Ip = ? AND Port=? ", cisave.Addr, cisave.Port).Count(&count)
+	// 				if count > 0 {
 
-						mysql.Mysqlclient.Model(&model.ModbusUploadCommuction{}).Where("Ip = ? AND Port=? ", cisave.Addr, cisave.Port).Update("LastTime", cisave.LastSeen)
+	// 					mysql.Mysqlclient.Model(&model.ModbusUploadCommuction{}).Where("Ip = ? AND Port=? ", cisave.Addr, cisave.Port).Update("LastTime", cisave.LastSeen)
 
-					} else {
-						temp1 := model.ModbusUploadCommuction{}
-						temp1.Ip = cisave.Addr
-						temp1.Port = cisave.Port
-						temp1.FirstTime = cisave.FirstSeen
-						mysql.Mysqlclient.Model(&model.ModbusUploadCommuction{}).Select("Ip", "Port", "FirstTime", "LastTime").Create(&temp1)
+	// 				} else {
+	// 					temp1 := model.ModbusUploadCommuction{}
+	// 					temp1.Ip = cisave.Addr
+	// 					temp1.Port = cisave.Port
+	// 					temp1.FirstTime = cisave.FirstSeen
+	// 					mysql.Mysqlclient.Model(&model.ModbusUploadCommuction{}).Select("Ip", "Port", "FirstTime", "LastTime").Create(&temp1)
 
-					}
+	// 				}
 
-				}
+	// 			}
 
-				clientsMtx.Unlock()
-			}
-		}
-	}()
+	// 			clientsMtx.Unlock()
+	// 		}
+	// 	}
+	// }()
 
 	for {
 		select {
@@ -166,6 +192,7 @@ func StartDataUpLoad(ctx context.Context, mb *mbserver.Server, IsAuto []int, Wor
 			MBServerUpLoad.HoldingRegisters[1] = mb.HoldingRegisters[180]
 			MBServerUpLoad.HoldingRegisters[2] = uint16(modbus.HeartCount)
 			MBServerUpLoad.HoldingRegisters[7999] = uint16(utils.Conf.SYSTEM.SupportNum)
+			//fmt.Println("矿压数据上传开始组装数据")
 			for i := 1; i <= utils.Conf.SYSTEM.SupportNum; i++ {
 
 				if mb.HoldingRegisters[1520+(i-1)*9] > 252 {
@@ -255,6 +282,295 @@ func StartDataUpLoad(ctx context.Context, mb *mbserver.Server, IsAuto []int, Wor
 			}
 		}
 	}
+}
+
+func StartMinePressureFTPUpLoad(ctx context.Context) {
+	tickerTime := time.NewTicker(time.Second * 60)
+	defer tickerTime.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tickerTime.C:
+			log.Println("mine pressure ftp upload start")
+			fmt.Println("mine pressure ftp upload start")
+			if err := uploadMinePressureFile(time.Now()); err != nil {
+				log.Println("mine pressure ftp upload failed:", err)
+				fmt.Println("mine pressure ftp upload failed:", err)
+				continue
+			}
+			fmt.Println("mine pressure ftp upload success")
+			log.Println("mine pressure ftp upload success")
+		}
+	}
+}
+
+func uploadMinePressureFile(now time.Time) error {
+	if MBServerUpLoad == nil {
+		return fmt.Errorf("upload modbus server is not initialized")
+	}
+	fmt.Println("开始调用buildMinePressureFile")
+	fileName, data := buildMinePressureFile(now)
+	fmt.Println("矿压TXT文件名:", fileName)
+	//fmt.Println("矿压TXT内容:\n" + string(data))
+	return uploadBytesToMinePressureFTP(fileName, data)
+}
+
+func buildMinePressureFile(now time.Time) (string, []byte) {
+
+	fmt.Println("ftp协议：开始往txt中写")
+	uploadTime := now.Format("20060102150405")
+	dataTime := now.Format("2006-01-02 15:04:05")
+	fileName := fmt.Sprintf("%s_ZJSS_%s.txt", minePressureMineCode, uploadTime)
+
+	var builder strings.Builder
+	builder.Grow(64 + utils.Conf.SYSTEM.SupportNum*96)
+	for i := 1; i <= utils.Conf.SYSTEM.SupportNum; i++ {
+		pointCode := fmt.Sprintf("%03d3", i)
+		sensorID := fmt.Sprintf("%s%s%05d3", minePressureMineCode, minePressureSensorPrefix, i)
+		supportName := fmt.Sprintf("\u652f\u67b6\u53f7%d", i)
+		pressure := MBServerUpLoad.HoldingRegisters[(i-1)*7+3]
+		fmt.Fprintf(&builder, "%s;%s;%s;%s;%s;%s;%d;%d;%s~\r\n", sensorID, minePressureMineName, minePressureFaceCode, pointCode, supportName, "\u652f\u67b6\u53f7\u5de6\u67f1", pressure, minePressureAlarmValue, dataTime)
+	}
+
+	return fileName, []byte(builder.String())
+}
+
+func uploadBytesToMinePressureFTP(fileName string, data []byte) error {
+	client, err := dialMinePressureFTP(minePressureFTPAddr, minePressureFTPUser, minePressureFTPPass, minePressureFTPTimeout)
+	if err != nil {
+		fmt.Println("连接ftp服务失败")
+		return err
+	}
+	defer client.close()
+
+	var lastErr error
+	for _, uploadDir := range minePressureFTPUploadDirs {
+		if err := client.changeDir(uploadDir); err != nil {
+			lastErr = err
+			continue
+		}
+		remotePath := strings.TrimRight(strings.ReplaceAll(uploadDir, "\\", "/"), "/") + "/" + fileName
+		fmt.Println("\u77ff\u538bFTP\u4e0a\u4f20\u8def\u5f84:", remotePath)
+		//log.Println("\u77ff\u538bFTP\u4e0a\u4f20\u8def\u5f84:", remotePath)
+		if err := client.store(fileName, data); err != nil {
+			fmt.Println("矿压TXT上传失败:", fileName, err)
+			log.Println("矿压TXT上传失败:", fileName)
+			return err
+		}
+
+		fmt.Println("矿压TXT上传成功:", fileName)
+		//log.Println("矿压TXT上传成功:", fileName)
+		return nil
+	}
+	if lastErr != nil {
+		return fmt.Errorf("ftp change dir failed: %w", lastErr)
+	}
+	return fmt.Errorf("ftp upload dir is empty")
+}
+
+func dialMinePressureFTP(addr, user, password string, timeout time.Duration) (*minePressureFTPClient, error) {
+	conn, err := net.DialTimeout("tcp", addr, timeout)
+	if err != nil {
+		return nil, fmt.Errorf("ftp dial failed: %w", err)
+	}
+
+	client := &minePressureFTPClient{
+		conn:    conn,
+		reader:  textproto.NewReader(bufio.NewReader(conn)),
+		writer:  textproto.NewWriter(bufio.NewWriter(conn)),
+		timeout: timeout,
+	}
+
+	code, message, err := client.readResponse()
+	if err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("ftp banner failed: %w", err)
+	}
+	if code != 220 {
+		_ = conn.Close()
+		return nil, fmt.Errorf("ftp banner rejected: %d %s", code, message)
+	}
+
+	code, message, err = client.command("USER %s", user)
+	if err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("ftp user failed: %w", err)
+	}
+	switch code {
+	case 230:
+	case 331:
+		code, message, err = client.command("PASS %s", password)
+		if err != nil {
+			_ = conn.Close()
+			return nil, fmt.Errorf("ftp password failed: %w", err)
+		}
+		if code != 230 {
+			_ = conn.Close()
+			return nil, fmt.Errorf("ftp login failed: %d %s", code, message)
+		}
+	default:
+		_ = conn.Close()
+		return nil, fmt.Errorf("ftp user rejected: %d %s", code, message)
+	}
+
+	_, _, _ = client.command("OPTS UTF8 ON")
+	code, message, err = client.command("TYPE I")
+	if err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("ftp type failed: %w", err)
+	}
+	if code != 200 {
+		_ = conn.Close()
+		return nil, fmt.Errorf("ftp type rejected: %d %s", code, message)
+	}
+
+	return client, nil
+}
+
+func (client *minePressureFTPClient) close() {
+	_, _, _ = client.command("QUIT")
+	_ = client.conn.Close()
+}
+
+func (client *minePressureFTPClient) changeDir(remoteDir string) error {
+	code, message, err := client.command("CWD %s", remoteDir)
+	if err != nil {
+		return err
+	}
+	if code != 250 {
+		return fmt.Errorf("CWD %s failed: %d %s", remoteDir, code, message)
+	}
+	return nil
+}
+
+func (client *minePressureFTPClient) store(fileName string, data []byte) error {
+	dataConn, err := client.openPassiveDataConn()
+	if err != nil {
+		return err
+	}
+	defer dataConn.Close()
+
+	code, message, err := client.command("STOR %s", fileName)
+	if err != nil {
+		return fmt.Errorf("ftp stor failed: %w", err)
+	}
+	if code != 125 && code != 150 {
+		return fmt.Errorf("ftp stor rejected: %d %s", code, message)
+	}
+
+	if err := dataConn.SetDeadline(time.Now().Add(client.timeout)); err != nil {
+		return fmt.Errorf("ftp data deadline failed: %w", err)
+	}
+	if _, err := io.Copy(dataConn, bytes.NewReader(data)); err != nil {
+		return fmt.Errorf("ftp data write failed: %w", err)
+	}
+	if err := dataConn.Close(); err != nil {
+		return fmt.Errorf("ftp data close failed: %w", err)
+	}
+
+	code, message, err = client.readResponse()
+	if err != nil {
+		return fmt.Errorf("ftp stor finish failed: %w", err)
+	}
+	if code != 226 && code != 250 {
+		return fmt.Errorf("ftp stor finish rejected: %d %s", code, message)
+	}
+	return nil
+}
+
+func (client *minePressureFTPClient) openPassiveDataConn() (net.Conn, error) {
+	code, message, err := client.command("PASV")
+	if err != nil {
+		return nil, fmt.Errorf("ftp passive failed: %w", err)
+	}
+	if code != 227 {
+		return nil, fmt.Errorf("ftp passive rejected: %d %s", code, message)
+	}
+
+	pasvHost, port, err := parsePassiveEndpoint(message)
+	if err != nil {
+		return nil, err
+	}
+	controlHost := pasvHost
+	if remoteHost, _, splitErr := net.SplitHostPort(client.conn.RemoteAddr().String()); splitErr == nil {
+		controlHost = remoteHost
+	}
+
+	controlAddr := net.JoinHostPort(controlHost, strconv.Itoa(port))
+	pasvAddr := net.JoinHostPort(pasvHost, strconv.Itoa(port))
+	//fmt.Println("\u0050\u0041\u0053\u0056\u8fd4\u56de\u6570\u636e\u8fde\u63a5\u5730\u5740:", pasvAddr)
+	//log.Println("\u0050\u0041\u0053\u0056\u8fd4\u56de\u6570\u636e\u8fde\u63a5\u5730\u5740:", pasvAddr)
+
+	dataAddrs := []string{controlAddr}
+	if pasvAddr != controlAddr {
+		dataAddrs = append(dataAddrs, pasvAddr)
+	}
+
+	var lastErr error
+	for _, dataAddr := range dataAddrs {
+		//fmt.Println("\u0050\u0041\u0053\u0056\u5c1d\u8bd5\u6570\u636e\u8fde\u63a5\u5730\u5740:", dataAddr)
+		//log.Println("\u0050\u0041\u0053\u0056\u5c1d\u8bd5\u6570\u636e\u8fde\u63a5\u5730\u5740:", dataAddr)
+
+		dataConn, err := net.DialTimeout("tcp", dataAddr, client.timeout)
+		if err == nil {
+			//fmt.Println("\u0050\u0041\u0053\u0056\u6570\u636e\u8fde\u63a5\u6210\u529f:", dataAddr)
+			//log.Println("\u0050\u0041\u0053\u0056\u6570\u636e\u8fde\u63a5\u6210\u529f:", dataAddr)
+			return dataConn, nil
+		}
+
+		lastErr = err
+		//fmt.Println("\u0050\u0041\u0053\u0056\u6570\u636e\u8fde\u63a5\u5931\u8d25:", dataAddr, err)
+		//log.Println("\u0050\u0041\u0053\u0056\u6570\u636e\u8fde\u63a5\u5931\u8d25:", dataAddr, err)
+	}
+
+	return nil, fmt.Errorf("ftp data dial failed after trying %s: %w", strings.Join(dataAddrs, ", "), lastErr)
+}
+
+func (client *minePressureFTPClient) command(format string, args ...interface{}) (int, string, error) {
+	if err := client.conn.SetDeadline(time.Now().Add(client.timeout)); err != nil {
+		return 0, "", err
+	}
+	if err := client.writer.PrintfLine(format, args...); err != nil {
+		return 0, "", err
+	}
+	return client.reader.ReadResponse(0)
+}
+
+func (client *minePressureFTPClient) readResponse() (int, string, error) {
+	if err := client.conn.SetDeadline(time.Now().Add(client.timeout)); err != nil {
+		return 0, "", err
+	}
+	return client.reader.ReadResponse(0)
+}
+
+func parsePassiveEndpoint(message string) (string, int, error) {
+	start := strings.Index(message, "(")
+	if start < 0 {
+		return "", 0, fmt.Errorf("ftp passive response missing endpoint: %s", message)
+	}
+	end := strings.Index(message[start+1:], ")")
+	if end < 0 {
+		return "", 0, fmt.Errorf("ftp passive response missing endpoint: %s", message)
+	}
+
+	fields := strings.Split(message[start+1:start+1+end], ",")
+	if len(fields) < 6 {
+		return "", 0, fmt.Errorf("ftp passive response invalid endpoint: %s", message)
+	}
+
+	nums := make([]int, 6)
+	for i := 0; i < 6; i++ {
+		n, err := strconv.Atoi(strings.TrimSpace(fields[i]))
+		if err != nil || n < 0 || n > 255 {
+			return "", 0, fmt.Errorf("ftp passive response invalid endpoint: %s", message)
+		}
+		nums[i] = n
+	}
+
+	host := fmt.Sprintf("%d.%d.%d.%d", nums[0], nums[1], nums[2], nums[3])
+	port := nums[4]*256 + nums[5]
+	return host, port, nil
 }
 
 type activeEndpoint struct {
